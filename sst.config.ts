@@ -4,8 +4,7 @@ export default $config({
   app(input) {
     return {
       name: "tutorial-sst-gateway-drizzle-rds",
-      removal: input?.stage === "production" ? "retain" : "remove",
-      protect: ["production"].includes(input?.stage),
+      removal: "remove",
       home: "aws",
       providers: {
         aws: {
@@ -19,14 +18,33 @@ export default $config({
     const vpc = new sst.aws.Vpc("MyVpc", { bastion: true, nat: "ec2" });
     const rds = new sst.aws.Postgres("MyPostgres", { vpc, proxy: true });
 
+    const migrator = new sst.aws.Function("DatabaseMigrator", {
+      handler: "src/migrator.handler",
+      link: [rds],
+      vpc,
+      copyFiles: [
+        {
+          from: "migrations",
+          to: "./migrations",
+        },
+      ],
+    });
+    
+    if (!$dev){
+      new aws.lambda.Invocation("DatabaseMigratorInvocation", {
+        input: Date.now().toString(),
+        functionName: migrator.name,
+      });
+    }
+
     new sst.x.DevCommand("Studio", {
       link: [rds],
       dev: {
         command: "npx drizzle-kit studio",
       },
     });
-
-    const api = new sst.aws.ApiGatewayV2("MedApi", { 
+    
+    const api = new sst.aws.ApiGatewayV2("MyApi", { 
       vpc, 
       link: [rds],
       cors: {
@@ -37,11 +55,15 @@ export default $config({
     });
 
     api.route("GET /todos", {
-      handler: "src/get-todos.handler"
+      handler: "src/get-todos.handler",
+      vpc,
+      link: [rds]
     });
 
     api.route("POST /todos", {
-      handler: "src/post-todos.handler"
+      handler: "src/post-todos.handler",
+      vpc,
+      link: [rds]
     });
 
     return { api: api.url, host: rds.host, port: rds.port, user: rds.username, password: rds.password, database: rds.database };

@@ -12,5 +12,8 @@ export default defineConfig({
     user: Resource.MyPostgres.username,
     password: Resource.MyPostgres.password,
     database: Resource.MyPostgres.database,
+    ssl: {
+      rejectUnauthorized: false,
+    },
   },
 });
