@@ -37,19 +37,18 @@ This example demonstrates how to:
    npm run db migrate
    ```
 
-4. Run migrations on production:
-   ```bash
-   npx sst tunnel --stage production
-   ```
-
-   Then in a separate terminal window:
-   ```bash
-   npx sst shell --stage production npx drizzle-kit push
-   ```
-
-4. Deploy to production:
-   ```bash
+4. When deploying to production, migrations run automatically via a lambda invocator:
+  ```bash
    npx sst deploy --stage production
+   ```
+   
+   ```typescript
+    if (!$dev){
+      new aws.lambda.Invocation("DatabaseMigratorInvocation", {
+        input: Date.now().toString(),
+        functionName: migrator.name,
+      });
+    }
    ```
 
 ## Features
